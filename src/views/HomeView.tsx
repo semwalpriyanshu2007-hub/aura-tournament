@@ -2,8 +2,6 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Zap, ArrowRight } from 'lucide-react';
 import { useAura } from '../store';
-import { db } from '../firebase'; // 👈 IMPORTANT
-import { collection, getDocs } from 'firebase/firestore';
 
 export function HomeView() {
   const { user, tournaments, setActiveView, joinTournament, setTournaments } = useAura();
@@ -15,32 +13,7 @@ export function HomeView() {
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // 🔥 LOAD TOURNAMENTS FROM FIREBASE
-  const loadTournaments = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'tournaments'));
-
-      const data: any[] = [];
-
-      snapshot.forEach(doc => {
-        data.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-
-      setTournaments(data);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
-
-  // 🔥 LOAD ON PAGE LOAD
-  React.useEffect(() => {
-    loadTournaments();
-  }, []);
-
-  // ADD TOURNAMENT
+  // 🔥 ADD TOURNAMENT (UPDATED)
   const addTournament = async () => {
     if (!name || !price) {
       alert("Fill all fields ❗");
@@ -62,16 +35,25 @@ export function HomeView() {
         return;
       }
 
-      await res.json();
+      const data = await res.json();
+
+      // 🔥 IMPORTANT: UI update without reload
+      setTournaments((prev: any) => [
+        {
+          id: Date.now().toString(), // temp id
+          name,
+          entryFee: Number(price),
+          joinedSlots: 0,
+          maxSlots: 100
+        },
+        ...prev
+      ]);
 
       alert("Tournament Added ✅");
 
       setName('');
       setPrice('');
       setShowModal(false);
-
-      // 🔥 RELOAD DATA WITHOUT PAGE REFRESH
-      await loadTournaments();
 
     } catch (err) {
       console.error(err);
@@ -83,10 +65,7 @@ export function HomeView() {
     setJoiningId(id);
     try {
       const success = await joinTournament(id);
-      if (success) {
-        alert('Joined successfully!');
-        await loadTournaments(); // 🔥 refresh slots
-      }
+      if (success) alert('Joined successfully!');
     } catch (error: any) {
       alert(error.message || 'Failed to join tournament');
     } finally {
@@ -97,7 +76,7 @@ export function HomeView() {
   return (
     <div className="space-y-8 px-3">
 
-      {/* 🔥 ADD BUTTON */}
+      {/* ADD BUTTON */}
       <motion.button
         whileTap={{ scale: 0.9 }}
         whileHover={{ scale: 1.05 }}
@@ -107,10 +86,11 @@ export function HomeView() {
         + Add Tournament
       </motion.button>
 
-      {/* 🔥 HERO */}
+      {/* HERO */}
       <section className="relative rounded-3xl bg-gradient-to-br from-red-500/10 to-orange-400/10 border border-red-500/20 p-6 backdrop-blur-xl overflow-hidden">
 
         <div className="max-w-xl z-10 relative">
+
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-5 h-5 text-red-500" />
             <span className="text-sm text-red-400 font-bold">
@@ -127,81 +107,105 @@ export function HomeView() {
           </p>
 
           <div className="flex gap-3 flex-wrap">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ scale: 1.05 }}
+            <button
               onClick={() => setActiveView('tournaments')}
-              className="bg-red-500 text-white px-5 py-2 rounded-xl flex items-center gap-2"
+              className="bg-red-500 text-white px-5 py-2 rounded-xl flex items-center gap-2 shadow-md"
             >
               Join <ArrowRight className="w-4 h-4" />
-            </motion.button>
+            </button>
+
+            <button className="bg-gray-700 text-white px-5 py-2 rounded-xl">
+              Leaderboard
+            </button>
           </div>
+
         </div>
 
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500 blur-3xl opacity-20"></div>
       </section>
 
-      {/* 🔥 TOURNAMENT LIST */}
+      {/* TOURNAMENT LIST */}
       <section>
         <h3 className="text-lg font-bold mb-3">Tournaments</h3>
 
         <div className="grid gap-4">
-          {tournaments.map((t, i) => (
+          {tournaments.map((t: any, i: number) => (
             <motion.div
               key={t.id}
-              className="p-4 rounded-2xl bg-[#111] border border-gray-800"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="p-4 rounded-2xl bg-gradient-to-br from-[#111] to-[#1a1a1a] border border-gray-800 shadow-lg"
             >
-              <div className="flex justify-between mb-2">
-                <h4 className="text-white font-bold">{t.name}</h4>
-                <span className="text-red-400">₹{t.entryFee}</span>
+
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-white">{t.name}</h4>
+                <span className="text-xs text-red-400 font-bold">
+                  ₹{t.entryFee}
+                </span>
               </div>
 
               <p className="text-xs text-gray-400 mb-3">
-                {t.joinedSlots || 0}/{t.maxSlots || 100} Players
+                {t.joinedSlots}/{t.maxSlots} Players Joined
               </p>
 
               <button
                 onClick={() => handleJoin(t.id)}
                 disabled={joiningId === t.id}
-                className="w-full bg-red-500 py-2 rounded text-white"
+                className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-2 rounded-xl font-bold"
               >
                 {joiningId === t.id ? "Joining..." : "Join Now"}
               </button>
+
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* 🔥 MODAL */}
+      {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999]">
+          <div className="w-full max-w-md bg-[#111] p-5 rounded-2xl border border-red-500 shadow-2xl">
 
-          <div className="bg-[#111] p-5 rounded-xl w-full max-w-md">
-
-            <h2 className="text-white mb-3">Add Tournament</h2>
+            <h2 className="text-lg font-bold mb-4 text-white">
+              Add Tournament
+            </h2>
 
             <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Name"
-              className="w-full mb-3 p-2 bg-black border"
+              placeholder="Tournament Name"
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white"
             />
 
             <input
+              type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="Price"
-              className="w-full mb-3 p-2 bg-black border"
+              placeholder="Entry Price"
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white"
             />
 
-            <button onClick={addTournament} className="bg-red-500 w-full py-2 text-white">
-              Submit
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={addTournament}
+                className="flex-1 bg-red-500 py-2 rounded text-white font-bold"
+              >
+                Submit
+              </button>
+
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 bg-gray-700 py-2 rounded text-white"
+              >
+                Cancel
+              </button>
+            </div>
 
           </div>
         </div>
       )}
-
     </div>
   );
 }
