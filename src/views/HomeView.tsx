@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Users, Zap, TrendingUp, Calendar, ArrowRight } from 'lucide-react';
+import { Zap, ArrowRight } from 'lucide-react';
 import { useAura } from '../store';
 
 export function HomeView() {
@@ -13,7 +13,7 @@ export function HomeView() {
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // ✅ ADD TOURNAMENT
+  // ✅ ADD TOURNAMENT (FINAL FIXED)
   const addTournament = async () => {
     if (!name || !price) {
       alert("Fill all fields ❗");
@@ -30,6 +30,10 @@ export function HomeView() {
         })
       });
 
+      if (!res.ok) {
+        throw new Error("API failed");
+      }
+
       const data = await res.json();
       console.log(data);
 
@@ -39,6 +43,9 @@ export function HomeView() {
       setName('');
       setPrice('');
       setShowModal(false);
+
+      // 🔥 IMPORTANT: refresh list
+      window.location.reload();
 
     } catch (err) {
       console.error(err);
@@ -84,11 +91,7 @@ export function HomeView() {
             </span>
           </motion.div>
 
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl font-bold mb-4"
-          >
+          <motion.h2 className="text-4xl font-bold mb-4">
             BECOME THE <span className="text-red-500">LEGEND</span>
           </motion.h2>
 
@@ -139,7 +142,7 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* 🔥 MODAL (FIXED) */}
+      {/* 🔥 MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
 
