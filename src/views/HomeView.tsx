@@ -5,33 +5,36 @@ import { useAura } from '../store';
 
 export function HomeView() {
   const { user, tournaments, setActiveView, joinTournament } = useAura();
+
   const [joiningId, setJoiningId] = React.useState<string | null>(null);
 
-  // ✅ FINAL FIXED FUNCTION
-  const addTournament = async () => {
-    alert("Button Clicked 🚀");
+  // ✅ MODAL STATES
+  const [showModal, setShowModal] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [price, setPrice] = React.useState('');
 
+  // ✅ ADD TOURNAMENT (FORM BASED)
+  const addTournament = async () => {
     try {
       const res = await fetch('/api/add-tournament', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: "My Tournament",
-          price: 50
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price })
       });
-
-      alert("Status: " + res.status);
 
       const data = await res.json();
       console.log(data);
 
-      alert("DATA: " + JSON.stringify(data));
+      alert("Tournament Added ✅");
+
+      // reset + close modal
+      setName('');
+      setPrice('');
+      setShowModal(false);
+
     } catch (err) {
       console.error(err);
-      alert("Fetch failed ❌");
+      alert("Error ❌");
     }
   };
 
@@ -39,9 +42,7 @@ export function HomeView() {
     setJoiningId(id);
     try {
       const success = await joinTournament(id);
-      if (success) {
-        alert('Joined successfully!');
-      }
+      if (success) alert('Joined successfully!');
     } catch (error: any) {
       alert(error.message || 'Failed to join tournament');
     } finally {
@@ -52,15 +53,15 @@ export function HomeView() {
   return (
     <div className="space-y-8">
 
-      {/* ✅ ONLY ONE BUTTON */}
+      {/* ✅ BUTTON (OPEN MODAL) */}
       <button
-        onClick={addTournament}
+        onClick={() => setShowModal(true)}
         className="bg-red-600 text-white px-4 py-2 rounded-lg m-2"
       >
         Add Tournament
       </button>
 
-      {/* 🔥 Hero Section */}
+      {/* 🔥 HERO */}
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-aura-red/20 to-aura-orange/20 border border-aura-red/20 p-8 lg:p-12">
         <div className="relative z-10 max-w-2xl">
 
@@ -103,7 +104,7 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* 🔥 Tournament List */}
+      {/* 🔥 TOURNAMENT LIST */}
       <section>
         <h3 className="text-xl font-bold mb-4">Tournaments</h3>
 
@@ -129,6 +130,51 @@ export function HomeView() {
           ))}
         </div>
       </section>
+
+      {/* 🔥 MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#111] p-6 rounded-xl w-[90%] max-w-md border border-red-500">
+
+            <h2 className="text-xl font-bold mb-4 text-white">
+              Add Tournament
+            </h2>
+
+            <input
+              type="text"
+              placeholder="Tournament Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white"
+            />
+
+            <input
+              type="number"
+              placeholder="Entry Price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={addTournament}
+                className="flex-1 bg-red-600 py-2 rounded text-white font-bold"
+              >
+                Submit
+              </button>
+
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 bg-gray-700 py-2 rounded text-white"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
