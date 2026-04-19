@@ -1,22 +1,16 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAwpyphuoBSx3i92sLiQ2lRcBSUszM3MXM",
+  apiKey: "AIzaSyAwpyphuoBSx3i92sLiQ21RcBSUszM3MXM",
   authDomain: "turnament-85bba.firebaseapp.com",
   projectId: "turnament-85bba",
-  storageBucket: "turnament-85bba.firebasestorage.app",
+  storageBucket: "turnament-85bba.appspot.com",
   messagingSenderId: "844005454213",
   appId: "1:844005454213:web:5eb02d83b8a657a3a954ec",
   measurementId: "G-3Z2HW82BE5"
 };
 
 const app = initializeApp(firebaseConfig);
-let analytics;
-try {
-  analytics = getAnalytics(app);
-} catch (e) {
-  console.warn("Analytics could not be initialized:", e);
-}
 
-export { app, analytics };
+export const db = getFirestore(app);
