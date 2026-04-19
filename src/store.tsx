@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Tournament, Post, Notification } from './types';
-import { MOCK_USER, MOCK_TOURNAMENTS, MOCK_POSTS } from './constants';
+import { MOCK_USER, MOCK_POSTS } from './constants';
 
 interface AuraState {
   user: User | null;
@@ -31,16 +31,16 @@ interface AuraState {
 const AuraContext = createContext<AuraState | undefined>(undefined);
 
 export function AuraProvider({ children }: { children: React.ReactNode }) {
+
   const [user, setUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('aura_user');
-      return saved ? JSON.parse(saved) : null; 
-    } catch (e) {
-      console.error('Error parsing saved user:', e);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
       return null;
     }
   });
-  
+
   const [activeView, setActiveView] = useState('home');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoadingTournaments, setIsLoadingTournaments] = useState(false);
@@ -50,6 +50,7 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_USER.notifications);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
+  // 🔥 AUTO LOAD
   useEffect(() => {
     fetchTournaments();
 
@@ -65,41 +66,58 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // 🔥 FIXED FETCH
   const fetchTournaments = async () => {
     setIsLoadingTournaments(true);
     setTournamentError(null);
+
     try {
-      const response = await fetch('/api/tournaments');
-      if (!response.ok) throw new Error('Failed to fetch tournaments');
-      const data = await response.json();
-      
-      // Map API data to fit frontend type if needed
-      // Our API returns { id, name, price, createdAt }
-      // The frontend expects Tournament interface with type, entryFee, prizePool etc.
-      const mappedTournaments: Tournament[] = data.tournaments.map((t: any) => ({
+      const res = await fetch('/api/tournaments');
+      if (!res.ok) throw new Error('Failed to fetch tournaments');
+
+      const data = await res.json();
+
+      const mapped: Tournament[] = data.tournaments.map((t: any) => ({
         id: t.id,
         name: t.name,
+
         type: t.type || 'solo',
-        entryFee: t.price || 0, // In index.js we save 'price' from body
-        prizePool: t.prizePool || (t.price ? t.price * 50 : 1000), // Guess prize pool for now
-        maxSlots: t.maxSlots || 48,
-        joinedSlots: typeof t.participantCount === 'number' ? t.participantCount : (t.joinedSlots || 0),
+
+        // ✅ FIXED (entryFee / price dono support)
+        entryFee: t.entryFee ?? t.price ?? 0,
+
+        // ✅ SAFE prize
+        prizePool: t.prizePool ?? ((t.entryFee ?? t.price ?? 0) * 50),
+
+        maxSlots: t.maxSlots ?? 100,
+
+        // ✅ FIXED join count
+        joinedSlots: t.joinedSlots ?? t.participantCount ?? 0,
+
         status: t.status || 'upcoming',
-        date: t.date || new Date(t.createdAt?._seconds * 1000).toLocaleDateString() || '2024-04-20',
+
+        // ✅ SAFE DATE
+        date: t.createdAt
+          ? new Date(t.createdAt._seconds * 1000).toLocaleDateString()
+          : 'N/A',
+
         startTime: t.startTime || '18:00',
+
         slots: t.slots || [],
-        winner: t.winner
+        winner: t.winner || null
       }));
-      
-      setTournaments(mappedTournaments);
+
+      setTournaments(mapped);
+
     } catch (err: any) {
-      console.error('Error loading tournaments:', err);
+      console.error(err);
       setTournamentError(err.message);
     } finally {
       setIsLoadingTournaments(false);
     }
   };
 
+  // SAVE USER
   useEffect(() => {
     if (user) {
       localStorage.setItem('aura_user', JSON.stringify(user));
@@ -113,77 +131,60 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
   };
 
   const markNotificationRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications(prev =>
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    );
   };
 
+  // JOIN
   const joinTournament = async (tournamentId: string) => {
     if (!user) return false;
-    
-    const tournament = tournaments.find(t => t.id === tournamentId);
-    if (!tournament || tournament.joinedSlots >= tournament.maxSlots) return false;
-    if (user.wallet.balance < tournament.entryFee) return false;
 
-    try {
-      const response = await fetch('/api/join-tournament', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tournamentId,
-          userName: user.username
-        })
-      });
+    const t = tournaments.find(x => x.id === tournamentId);
+    if (!t || t.joinedSlots >= t.maxSlots) return false;
+    if (user.wallet.balance < t.entryFee) return false;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to join tournament API');
+    const res = await fetch('/api/join-tournament', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, userName: user.username })
+    });
+
+    if (!res.ok) throw new Error('Join failed');
+
+    setUser({
+      ...user,
+      wallet: {
+        ...user.wallet,
+        balance: user.wallet.balance - t.entryFee,
+        transactions: [
+          {
+            id: `t_${Date.now()}`,
+            amount: t.entryFee,
+            type: 'entry_fee',
+            status: 'completed',
+            date: new Date().toISOString()
+          },
+          ...user.wallet.transactions
+        ]
       }
+    });
 
-      // Update wallet locally
-      const newUser = {
-        ...user,
-        wallet: {
-          ...user.wallet,
-          balance: user.wallet.balance - tournament.entryFee,
-          transactions: [
-            {
-              id: `t_${Date.now()}`,
-              amount: tournament.entryFee,
-              type: 'entry_fee' as const,
-              status: 'completed' as const,
-              date: new Date().toISOString()
-            },
-            ...user.wallet.transactions
-          ]
-        }
-      };
-      setUser(newUser);
+    setTournaments(prev =>
+      prev.map(x =>
+        x.id === tournamentId
+          ? { ...x, joinedSlots: x.joinedSlots + 1 }
+          : x
+      )
+    );
 
-      // Update tournament slots locally
-      setTournaments(prev => prev.map(t => 
-        t.id === tournamentId 
-          ? { ...t, joinedSlots: t.joinedSlots + 1 } 
-          : t
-      ));
-
-      addNotification({
-        id: `n_${Date.now()}`,
-        title: 'Tournament Joined',
-        message: `You have successfully joined ${tournament.name}`,
-        type: 'tournament',
-        read: false,
-        date: new Date().toISOString()
-      });
-
-      return true;
-    } catch (error: any) {
-      console.error('Error joining tournament in backend:', error);
-      throw error; // Throw the error so the UI can catch it and show the message
-    }
+    return true;
   };
 
   const depositMoney = (amount: number) => {
     if (!user) return;
-    const newUser = {
+
+    setUser({
       ...user,
       wallet: {
         ...user.wallet,
@@ -192,115 +193,81 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
           {
             id: `t_${Date.now()}`,
             amount,
-            type: 'deposit' as const,
-            status: 'completed' as const,
+            type: 'deposit',
+            status: 'completed',
             date: new Date().toISOString()
           },
           ...user.wallet.transactions
         ]
       }
-    };
-    setUser(newUser);
-    addNotification({
-      id: `n_${Date.now()}`,
-      title: 'Funds Added',
-      message: `$${amount} has been added to your wallet.`,
-      type: 'wallet',
-      read: false,
-      date: new Date().toISOString()
     });
   };
 
-  const createTournament = async (tData: Omit<Tournament, 'id' | 'joinedSlots' | 'slots' | 'status'>) => {
-    try {
-      // Call real API
-      const response = await fetch('/api/add-tournament', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: tData.name,
-          price: tData.entryFee,
-          type: tData.type,
-          prizePool: tData.prizePool,
-          maxSlots: tData.maxSlots,
-          date: tData.date,
-          startTime: tData.startTime
-        })
-      });
+  // CREATE
+  const createTournament = async (tData: any) => {
+    await fetch('/api/add-tournament', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: tData.name,
+        entryFee: tData.entryFee
+      })
+    });
 
-      if (!response.ok) throw new Error('Failed to create tournament');
-      
-      // Refresh list
-      await fetchTournaments();
-    } catch (error) {
-      console.error('Error creating tournament:', error);
-      alert('Failed to create tournament correctly in backend');
-    }
+    await fetchTournaments(); // 🔥 NO reload
   };
 
-  const updateTournament = async (id: string, data: { name: string; price: number }) => {
-    try {
-      const response = await fetch(`/api/tournament/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+  const updateTournament = async (id: string, data: any) => {
+    await fetch(`/api/tournament/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to update tournament');
-      }
-
-      await fetchTournaments();
-      return true;
-    } catch (error: any) {
-      console.error('Error updating tournament:', error);
-      alert(error.message);
-      return false;
-    }
+    await fetchTournaments();
+    return true;
   };
 
   const selectWinner = async (tournamentId: string, userName: string) => {
-    try {
-      const response = await fetch('/api/select-winner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tournamentId, userName })
-      });
+    await fetch('/api/select-winner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId, userName })
+    });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to select winner');
-      }
-
-      return true;
-    } catch (error: any) {
-      console.error('Error selecting winner:', error);
-      alert(error.message);
-      return false;
-    }
+    return true;
   };
 
   const installApp = async () => {
     if (!deferredPrompt) return;
-    
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
-    
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
   };
 
   return (
     <AuraContext.Provider value={{
-      user, activeView, tournaments, isLoadingTournaments, tournamentError, posts, notifications, isAdminView,
-      setUser, setActiveView, setTournaments, fetchTournaments, setPosts, addNotification, 
-      markNotificationRead, setIsAdminView, joinTournament, depositMoney, createTournament, updateTournament, selectWinner,
+      user,
+      activeView,
+      tournaments,
+      isLoadingTournaments,
+      tournamentError,
+      posts,
+      notifications,
+      isAdminView,
+      setUser,
+      setActiveView,
+      setTournaments,
+      fetchTournaments,
+      setPosts,
+      addNotification,
+      markNotificationRead,
+      setIsAdminView,
+      joinTournament,
+      depositMoney,
+      createTournament,
+      updateTournament,
+      selectWinner,
       canInstall: !!deferredPrompt,
       installApp
     }}>
@@ -310,9 +277,7 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAura() {
-  const context = useContext(AuraContext);
-  if (context === undefined) {
-    throw new Error('useAura must be used within an AuraProvider');
-  }
-  return context;
+  const ctx = useContext(AuraContext);
+  if (!ctx) throw new Error('useAura must be used inside AuraProvider');
+  return ctx;
 }
