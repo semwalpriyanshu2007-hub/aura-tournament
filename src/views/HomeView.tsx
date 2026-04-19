@@ -8,52 +8,41 @@ export function HomeView() {
 
   const [joiningId, setJoiningId] = React.useState<string | null>(null);
 
-  // ✅ MODAL STATES
+  // MODAL STATES
   const [showModal, setShowModal] = React.useState(false);
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // ✅ FIXED ADD TOURNAMENT
+  // ADD TOURNAMENT
   const addTournament = async () => {
     if (!name || !price) {
       alert("Fill all fields ❗");
       return;
     }
 
-    alert("Sending...");
-
     try {
       const res = await fetch('/api/add-tournament', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-
-        // 🔥 MAIN FIX HERE
-        body: JSON.stringify({ 
-          name, 
-          entryFee: Number(price) 
+        body: JSON.stringify({
+          name,
+          entryFee: Number(price)
         })
       });
 
-      alert("API HIT: " + res.status);
-
       if (!res.ok) {
-        const text = await res.text();
-        console.log("API ERROR:", text);
         alert("API failed ❌");
         return;
       }
 
-      const data = await res.json();
-      console.log("SUCCESS:", data);
+      await res.json();
 
       alert("Tournament Added ✅");
 
-      // reset
       setName('');
       setPrice('');
       setShowModal(false);
 
-      // refresh
       window.location.reload();
 
     } catch (err) {
@@ -75,48 +64,48 @@ export function HomeView() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-3">
 
       {/* BUTTON */}
       <button
         onClick={() => setShowModal(true)}
-        className="bg-red-600 text-white px-4 py-2 rounded-lg m-2"
+        className="bg-red-600 text-white px-4 py-2 rounded-lg"
       >
         Add Tournament
       </button>
 
       {/* HERO */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-aura-red/20 to-aura-orange/20 border border-aura-red/20 p-8 lg:p-12">
-        <div className="relative z-10 max-w-2xl">
+      <section className="rounded-2xl bg-gradient-to-br from-red-500/10 to-orange-400/10 border border-red-500/20 p-6">
+        <div className="max-w-xl">
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center space-x-2 bg-aura-red/10 border border-aura-red/20 rounded-full px-4 py-1.5 mb-6"
+            initial={false}   // 🔥 lag fix
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 mb-4"
           >
-            <Zap size={14} className="text-aura-red fill-aura-red" />
-            <span className="text-xs font-bold text-aura-red uppercase">
+            <Zap className="w-5 h-5 text-red-500" />
+            <span className="text-sm text-red-400 font-bold">
               Welcome, {user?.username}
             </span>
           </motion.div>
 
-          <motion.h2 className="text-4xl font-bold mb-4">
+          <h2 className="text-2xl font-bold mb-2">
             BECOME THE <span className="text-red-500">LEGEND</span>
-          </motion.h2>
+          </h2>
 
-          <motion.p className="text-gray-400 mb-6">
+          <p className="text-gray-400 mb-4">
             Join tournaments and win rewards.
-          </motion.p>
+          </p>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3 flex-wrap">
             <button
               onClick={() => setActiveView('tournaments')}
-              className="bg-red-500 text-white px-6 py-3 rounded-lg flex items-center gap-2"
+              className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
             >
-              Join Tournament <ArrowRight size={18} />
+              Join <ArrowRight className="w-4 h-4" />
             </button>
 
-            <button className="bg-gray-700 text-white px-6 py-3 rounded-lg">
+            <button className="bg-gray-700 text-white px-4 py-2 rounded-lg">
               Leaderboard
             </button>
           </div>
@@ -126,16 +115,16 @@ export function HomeView() {
 
       {/* TOURNAMENT LIST */}
       <section>
-        <h3 className="text-xl font-bold mb-4">Tournaments</h3>
+        <h3 className="text-lg font-bold mb-3">Tournaments</h3>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {tournaments.map((t) => (
-            <div key={t.id} className="p-4 border rounded-xl">
+            <div key={t.id} className="p-4 rounded-xl bg-[#111] border border-gray-800">
 
-              <h4 className="font-bold">{t.name}</h4>
+              <h4 className="font-bold text-white">{t.name}</h4>
 
               <p className="text-sm text-gray-400">
-                ${t.entryFee} • {t.joinedSlots}/{t.maxSlots}
+                ₹{t.entryFee} • {t.joinedSlots}/{t.maxSlots}
               </p>
 
               <button
@@ -153,11 +142,11 @@ export function HomeView() {
 
       {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999]">
 
-          <div className="bg-[#111] p-6 rounded-xl w-[90%] max-w-md border border-red-500">
+          <div className="w-full max-w-md bg-[#111] p-5 rounded-xl border border-red-500">
 
-            <h2 className="text-xl font-bold mb-4 text-white">
+            <h2 className="text-lg font-bold mb-4 text-white">
               Add Tournament
             </h2>
 
@@ -166,7 +155,7 @@ export function HomeView() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Tournament Name"
-              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white"
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white outline-none"
             />
 
             <input
@@ -174,7 +163,7 @@ export function HomeView() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="Entry Price"
-              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white"
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white outline-none"
             />
 
             <div className="flex gap-3">
