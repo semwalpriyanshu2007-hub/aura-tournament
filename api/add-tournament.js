@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-// 🔥 Firebase config (same jo tu firebase.ts me use kar raha hai)
+// 🔥 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAwypphuoBSx3i92sLiQ21RcBSUszM3MXM",
   authDomain: "turnament-85bba.firebaseapp.com",
@@ -24,13 +24,16 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: "Missing fields" });
       }
 
-      // 🔥 FIRESTORE SAVE
+      // 🔥 FIRESTORE SAVE (FIXED)
       await addDoc(collection(db, "tournaments"), {
         name,
-        entryFee,
+        price: entryFee, // ✅ IMPORTANT FIX (frontend ke liye)
+        entryFee: entryFee, // optional (future use)
         joinedSlots: 0,
         maxSlots: 100,
-        createdAt: new Date()
+        type: "solo",
+        status: "upcoming",
+        createdAt: serverTimestamp() // ✅ FIX (proper timestamp)
       });
 
       return res.status(200).json({
