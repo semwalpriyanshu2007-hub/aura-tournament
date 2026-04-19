@@ -1,6 +1,6 @@
 export default function handler(req, res) {
   if (req.method === 'POST') {
-    const { name, price } = req.body;
+    const { name, price } = req.body || {};
 
     return res.status(200).json({
       success: true,
