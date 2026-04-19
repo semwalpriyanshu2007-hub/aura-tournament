@@ -13,29 +13,38 @@ export function HomeView() {
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // ✅ ADD TOURNAMENT (FINAL FIXED)
+  // ✅ FIXED ADD TOURNAMENT
   const addTournament = async () => {
     if (!name || !price) {
       alert("Fill all fields ❗");
       return;
     }
 
+    alert("Sending...");
+
     try {
       const res = await fetch('/api/add-tournament', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+
+        // 🔥 MAIN FIX HERE
         body: JSON.stringify({ 
           name, 
-          price: Number(price) 
+          entryFee: Number(price) 
         })
       });
 
+      alert("API HIT: " + res.status);
+
       if (!res.ok) {
-        throw new Error("API failed");
+        const text = await res.text();
+        console.log("API ERROR:", text);
+        alert("API failed ❌");
+        return;
       }
 
       const data = await res.json();
-      console.log(data);
+      console.log("SUCCESS:", data);
 
       alert("Tournament Added ✅");
 
@@ -44,7 +53,7 @@ export function HomeView() {
       setPrice('');
       setShowModal(false);
 
-      // 🔥 IMPORTANT: refresh list
+      // refresh
       window.location.reload();
 
     } catch (err) {
@@ -68,7 +77,7 @@ export function HomeView() {
   return (
     <div className="space-y-8">
 
-      {/* ✅ OPEN MODAL BUTTON */}
+      {/* BUTTON */}
       <button
         onClick={() => setShowModal(true)}
         className="bg-red-600 text-white px-4 py-2 rounded-lg m-2"
@@ -76,7 +85,7 @@ export function HomeView() {
         Add Tournament
       </button>
 
-      {/* 🔥 HERO */}
+      {/* HERO */}
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-aura-red/20 to-aura-orange/20 border border-aura-red/20 p-8 lg:p-12">
         <div className="relative z-10 max-w-2xl">
 
@@ -115,7 +124,7 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* 🔥 TOURNAMENT LIST */}
+      {/* TOURNAMENT LIST */}
       <section>
         <h3 className="text-xl font-bold mb-4">Tournaments</h3>
 
@@ -142,7 +151,7 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* 🔥 MODAL */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
 
@@ -157,8 +166,7 @@ export function HomeView() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Tournament Name"
-              autoFocus
-              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white focus:outline-none"
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white"
             />
 
             <input
@@ -166,7 +174,7 @@ export function HomeView() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="Entry Price"
-              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white focus:outline-none"
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white"
             />
 
             <div className="flex gap-3">
