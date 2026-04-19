@@ -11,6 +11,24 @@ import { LoginView } from './views/LoginView';
 import { AnimatePresence, motion } from 'motion/react';
 
 function AppContent() {
+
+  // ✅ ADD FUNCTION (yahi missing tha)
+  const addTournament = async () => {
+    const res = await fetch('/api/add-tournament', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: "My Tournament",
+        price: 50
+      })
+    });
+
+    const data = await res.json();
+    console.log(data);
+  };
+
   const { activeView, user } = useAura();
 
   if (!user) {
@@ -32,6 +50,22 @@ function AppContent() {
 
   return (
     <Layout>
+
+      {/* 🔥 BUTTON YAHAN ADD KIYA */}
+      <button 
+        onClick={addTournament}
+        style={{
+          margin: '10px',
+          padding: '10px 15px',
+          background: 'red',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px'
+        }}
+      >
+        Add Tournament
+      </button>
+
       <AnimatePresence mode="wait">
         <motion.div
           key={activeView}
