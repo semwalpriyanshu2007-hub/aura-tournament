@@ -66,20 +66,23 @@ export function HomeView() {
   return (
     <div className="space-y-8 px-3">
 
-      {/* BUTTON */}
-      <button
+      {/* 🔥 ADD BUTTON */}
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.05 }}
         onClick={() => setShowModal(true)}
-        className="bg-red-600 text-white px-4 py-2 rounded-lg"
+        className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-5 py-2 rounded-xl shadow-lg"
       >
-        Add Tournament
-      </button>
+        + Add Tournament
+      </motion.button>
 
-      {/* HERO */}
-      <section className="rounded-2xl bg-gradient-to-br from-red-500/10 to-orange-400/10 border border-red-500/20 p-6">
-        <div className="max-w-xl">
+      {/* 🔥 HERO PREMIUM */}
+      <section className="relative rounded-3xl bg-gradient-to-br from-red-500/10 to-orange-400/10 border border-red-500/20 p-6 backdrop-blur-xl overflow-hidden">
+
+        <div className="max-w-xl z-10 relative">
 
           <motion.div
-            initial={false}   // 🔥 lag fix
+            initial={false}
             animate={{ opacity: 1 }}
             className="flex items-center gap-2 mb-4"
           >
@@ -89,62 +92,84 @@ export function HomeView() {
             </span>
           </motion.div>
 
-          <h2 className="text-2xl font-bold mb-2">
+          <h2 className="text-3xl font-bold mb-2">
             BECOME THE <span className="text-red-500">LEGEND</span>
           </h2>
 
-          <p className="text-gray-400 mb-4">
+          <p className="text-gray-400 mb-5">
             Join tournaments and win rewards.
           </p>
 
           <div className="flex gap-3 flex-wrap">
-            <button
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
               onClick={() => setActiveView('tournaments')}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+              className="bg-red-500 text-white px-5 py-2 rounded-xl flex items-center gap-2 shadow-md"
             >
               Join <ArrowRight className="w-4 h-4" />
-            </button>
+            </motion.button>
 
-            <button className="bg-gray-700 text-white px-4 py-2 rounded-lg">
+            <button className="bg-gray-700 text-white px-5 py-2 rounded-xl">
               Leaderboard
             </button>
           </div>
 
         </div>
+
+        {/* Glow Effect */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500 blur-3xl opacity-20"></div>
       </section>
 
-      {/* TOURNAMENT LIST */}
+      {/* 🔥 PREMIUM TOURNAMENT CARDS */}
       <section>
         <h3 className="text-lg font-bold mb-3">Tournaments</h3>
 
-        <div className="grid gap-3">
-          {tournaments.map((t) => (
-            <div key={t.id} className="p-4 rounded-xl bg-[#111] border border-gray-800">
+        <div className="grid gap-4">
+          {tournaments.map((t, i) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              whileHover={{ scale: 1.02 }}
+              className="p-4 rounded-2xl bg-gradient-to-br from-[#111] to-[#1a1a1a] border border-gray-800 shadow-lg"
+            >
 
-              <h4 className="font-bold text-white">{t.name}</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-white">{t.name}</h4>
+                <span className="text-xs text-red-400 font-bold">
+                  ₹{t.entryFee}
+                </span>
+              </div>
 
-              <p className="text-sm text-gray-400">
-                ₹{t.entryFee} • {t.joinedSlots}/{t.maxSlots}
+              <p className="text-xs text-gray-400 mb-3">
+                {t.joinedSlots}/{t.maxSlots} Players Joined
               </p>
 
-              <button
+              <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={() => handleJoin(t.id)}
                 disabled={joiningId === t.id}
-                className="mt-3 bg-gray-800 text-white px-4 py-2 rounded-lg w-full"
+                className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white py-2 rounded-xl font-bold"
               >
-                {joiningId === t.id ? "Joining..." : "Join"}
-              </button>
+                {joiningId === t.id ? "Joining..." : "Join Now"}
+              </motion.button>
 
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
 
-      {/* MODAL */}
+      {/* 🔥 MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999]">
 
-          <div className="w-full max-w-md bg-[#111] p-5 rounded-xl border border-red-500">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-md bg-[#111] p-5 rounded-2xl border border-red-500 shadow-2xl"
+          >
 
             <h2 className="text-lg font-bold mb-4 text-white">
               Add Tournament
@@ -155,7 +180,7 @@ export function HomeView() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Tournament Name"
-              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white outline-none"
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white outline-none focus:border-red-500"
             />
 
             <input
@@ -163,13 +188,13 @@ export function HomeView() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="Entry Price"
-              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white outline-none"
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white outline-none focus:border-red-500"
             />
 
             <div className="flex gap-3">
               <button
                 onClick={addTournament}
-                className="flex-1 bg-red-600 py-2 rounded text-white font-bold"
+                className="flex-1 bg-gradient-to-r from-red-500 to-orange-500 py-2 rounded text-white font-bold"
               >
                 Submit
               </button>
@@ -182,7 +207,7 @@ export function HomeView() {
               </button>
             </div>
 
-          </div>
+          </motion.div>
         </div>
       )}
 
