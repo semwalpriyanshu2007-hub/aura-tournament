@@ -2,7 +2,7 @@ import axios from 'axios';
 
 async function callAddTournament() {
   try {
-    const response = await axios.post('http://localhost:3000/api/add-tournament', {
+    const response = await axios.post('/api/add-tournament', {
       name: "Aura Cup 2",
       price: 150
     });
