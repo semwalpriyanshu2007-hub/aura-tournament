@@ -3,6 +3,10 @@ import { motion } from 'motion/react';
 import { Zap, ArrowRight } from 'lucide-react';
 import { useAura } from '../store';
 
+// 🔥 NEW IMPORTS (IMPORTANT)
+import { db } from '../firebase';
+import { collection, addDoc } from 'firebase/firestore';
+
 export function HomeView() {
   const { user, tournaments, setActiveView, joinTournament } = useAura();
 
@@ -13,7 +17,7 @@ export function HomeView() {
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // ADD TOURNAMENT
+  // ✅ FIXED ADD TOURNAMENT (DIRECT FIREBASE)
   const addTournament = async () => {
     if (!name || !price) {
       alert("Fill all fields ❗");
@@ -21,29 +25,20 @@ export function HomeView() {
     }
 
     try {
-      const res = await fetch('/api/add-tournament', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          entryFee: Number(price)
-        })
+      await addDoc(collection(db, "tournaments"), {
+        name,
+        entryFee: Number(price),
+        joinedSlots: 0,
+        maxSlots: 100,
+        createdAt: new Date()
       });
-
-      if (!res.ok) {
-        alert("API failed ❌");
-        return;
-      }
-
-      await res.json();
 
       alert("Tournament Added ✅");
 
+      // reset
       setName('');
       setPrice('');
       setShowModal(false);
-
-      window.location.reload();
 
     } catch (err) {
       console.error(err);
@@ -76,7 +71,7 @@ export function HomeView() {
         + Add Tournament
       </motion.button>
 
-      {/* 🔥 HERO PREMIUM */}
+      {/* 🔥 HERO */}
       <section className="relative rounded-3xl bg-gradient-to-br from-red-500/10 to-orange-400/10 border border-red-500/20 p-6 backdrop-blur-xl overflow-hidden">
 
         <div className="max-w-xl z-10 relative">
@@ -117,11 +112,10 @@ export function HomeView() {
 
         </div>
 
-        {/* Glow Effect */}
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500 blur-3xl opacity-20"></div>
       </section>
 
-      {/* 🔥 PREMIUM TOURNAMENT CARDS */}
+      {/* 🔥 TOURNAMENT CARDS */}
       <section>
         <h3 className="text-lg font-bold mb-3">Tournaments</h3>
 
