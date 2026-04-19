@@ -21,8 +21,8 @@ interface AuraState {
   setIsAdminView: (isAdmin: boolean) => void;
   joinTournament: (tournamentId: string) => Promise<boolean>;
   depositMoney: (amount: number) => void;
-  createTournament: (tournament: Omit<Tournament, 'id' | 'joinedSlots' | 'slots' | 'status'>) => void;
-  updateTournament: (id: string, data: { name: string; price: number }) => Promise<boolean>;
+  createTournament: (tournament: any) => void;
+  updateTournament: (id: string, data: any) => Promise<boolean>;
   selectWinner: (tournamentId: string, userName: string) => Promise<boolean>;
   canInstall: boolean;
   installApp: () => Promise<void>;
@@ -50,9 +50,15 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_USER.notifications);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  // 🔥 AUTO LOAD
+  // 🔥 AUTO LOAD + LIVE UPDATE
   useEffect(() => {
     fetchTournaments();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchTournaments();
+      }
+    }, 5000);
 
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -62,17 +68,21 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
+      clearInterval(interval);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
-  // 🔥 FINAL FIXED FETCH
+  // 🔥 FINAL FETCH (NO CACHE ISSUE)
   const fetchTournaments = async () => {
     setIsLoadingTournaments(true);
     setTournamentError(null);
 
     try {
-      const res = await fetch('/api/tournaments');
+      const res = await fetch('/api/tournaments', {
+        cache: 'no-store' // 🔥 IMPORTANT (Vercel cache fix)
+      });
+
       if (!res.ok) throw new Error('Failed to fetch tournaments');
 
       const data = await res.json();
@@ -80,23 +90,18 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
       const mapped: Tournament[] = data.tournaments.map((t: any) => ({
         id: t.id,
         name: t.name,
-
         type: t.type || 'solo',
 
-        // ✅ entryFee fix
         entryFee: t.entryFee ?? t.price ?? 0,
 
-        // ✅ prize fix
         prizePool: t.prizePool ?? ((t.entryFee ?? t.price ?? 0) * 50),
 
         maxSlots: t.maxSlots ?? 100,
 
-        // ✅ joined fix
         joinedSlots: t.joinedSlots ?? t.participantCount ?? 0,
 
         status: t.status || 'upcoming',
 
-        // ✅ FINAL DATE FIX (IMPORTANT)
         date: t.createdAt?.seconds
           ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
           : 'N/A',
