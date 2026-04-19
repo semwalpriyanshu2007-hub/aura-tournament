@@ -66,7 +66,7 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 🔥 FIXED FETCH
+  // 🔥 FINAL FIXED FETCH
   const fetchTournaments = async () => {
     setIsLoadingTournaments(true);
     setTournamentError(null);
@@ -83,22 +83,22 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
 
         type: t.type || 'solo',
 
-        // ✅ FIXED (entryFee / price dono support)
+        // ✅ entryFee fix
         entryFee: t.entryFee ?? t.price ?? 0,
 
-        // ✅ SAFE prize
+        // ✅ prize fix
         prizePool: t.prizePool ?? ((t.entryFee ?? t.price ?? 0) * 50),
 
         maxSlots: t.maxSlots ?? 100,
 
-        // ✅ FIXED join count
+        // ✅ joined fix
         joinedSlots: t.joinedSlots ?? t.participantCount ?? 0,
 
         status: t.status || 'upcoming',
 
-        // ✅ SAFE DATE
-        date: t.createdAt
-          ? new Date(t.createdAt._seconds * 1000).toLocaleDateString()
+        // ✅ FINAL DATE FIX (IMPORTANT)
+        date: t.createdAt?.seconds
+          ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
           : 'N/A',
 
         startTime: t.startTime || '18:00',
@@ -214,7 +214,7 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
       })
     });
 
-    await fetchTournaments(); // 🔥 NO reload
+    await fetchTournaments();
   };
 
   const updateTournament = async (id: string, data: any) => {
