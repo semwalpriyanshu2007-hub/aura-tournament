@@ -13,13 +13,21 @@ export function HomeView() {
   const [name, setName] = React.useState('');
   const [price, setPrice] = React.useState('');
 
-  // ✅ ADD TOURNAMENT (FORM BASED)
+  // ✅ ADD TOURNAMENT
   const addTournament = async () => {
+    if (!name || !price) {
+      alert("Fill all fields ❗");
+      return;
+    }
+
     try {
       const res = await fetch('/api/add-tournament', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, price })
+        body: JSON.stringify({ 
+          name, 
+          price: Number(price) 
+        })
       });
 
       const data = await res.json();
@@ -27,7 +35,7 @@ export function HomeView() {
 
       alert("Tournament Added ✅");
 
-      // reset + close modal
+      // reset
       setName('');
       setPrice('');
       setShowModal(false);
@@ -53,7 +61,7 @@ export function HomeView() {
   return (
     <div className="space-y-8">
 
-      {/* ✅ BUTTON (OPEN MODAL) */}
+      {/* ✅ OPEN MODAL BUTTON */}
       <button
         onClick={() => setShowModal(true)}
         className="bg-red-600 text-white px-4 py-2 rounded-lg m-2"
@@ -131,9 +139,10 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* 🔥 MODAL */}
+      {/* 🔥 MODAL (FIXED) */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+
           <div className="bg-[#111] p-6 rounded-xl w-[90%] max-w-md border border-red-500">
 
             <h2 className="text-xl font-bold mb-4 text-white">
@@ -142,18 +151,19 @@ export function HomeView() {
 
             <input
               type="text"
-              placeholder="Tournament Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white"
+              placeholder="Tournament Name"
+              autoFocus
+              className="w-full mb-3 p-3 rounded bg-black border border-gray-700 text-white focus:outline-none"
             />
 
             <input
               type="number"
-              placeholder="Entry Price"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white"
+              placeholder="Entry Price"
+              className="w-full mb-4 p-3 rounded bg-black border border-gray-700 text-white focus:outline-none"
             />
 
             <div className="flex gap-3">
