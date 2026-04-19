@@ -26,52 +26,71 @@ const AuraContext = createContext<AuraState | undefined>(undefined);
 
 export function AuraProvider({ children }: { children: React.ReactNode }) {
 
+  // 👤 USER
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('aura_user');
     return saved ? JSON.parse(saved) : null;
   });
 
   const [activeView, setActiveView] = useState('home');
+
+  // 🎮 TOURNAMENTS
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoadingTournaments, setIsLoadingTournaments] = useState(true);
   const [tournamentError, setTournamentError] = useState<string | null>(null);
+
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_USER.notifications);
   const [isAdminView, setIsAdminView] = useState(false);
 
-  // 🔥 REALTIME FIRESTORE
+  // 🔥 REALTIME FIRESTORE (NO REFRESH NEEDED)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'tournaments'), (snapshot) => {
+    try {
+      const unsubscribe = onSnapshot(collection(db, 'tournaments'), (snapshot) => {
 
-      const mapped: Tournament[] = snapshot.docs.map(doc => {
-        const t: any = doc.data();
+        console.log("🔥 FIRESTORE UPDATE:", snapshot.docs.length);
 
-        return {
-          id: doc.id,
-          name: t.name,
-          type: t.type || 'solo',
-          entryFee: t.entryFee ?? t.price ?? 0,
-          prizePool: (t.entryFee ?? t.price ?? 0) * 50,
-          maxSlots: t.maxSlots ?? 100,
-          joinedSlots: t.joinedSlots ?? 0,
-          status: t.status || 'upcoming',
-          date: t.createdAt?.seconds
-            ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
-            : 'N/A',
-          startTime: t.startTime || '18:00',
-          slots: t.slots || [],
-          winner: t.winner || null
-        };
+        const mapped: Tournament[] = snapshot.docs.map(doc => {
+          const t: any = doc.data();
+
+          return {
+            id: doc.id,
+            name: t.name,
+            type: t.type || 'solo',
+
+            entryFee: t.entryFee ?? t.price ?? 0,
+            prizePool: t.prizePool ?? ((t.entryFee ?? t.price ?? 0) * 50),
+
+            maxSlots: t.maxSlots ?? 100,
+            joinedSlots: t.joinedSlots ?? 0,
+
+            status: t.status || 'upcoming',
+
+            date: t.createdAt?.seconds
+              ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
+              : 'N/A',
+
+            startTime: t.startTime || '18:00',
+
+            slots: t.slots || [],
+            winner: t.winner || null
+          };
+        });
+
+        setTournaments(mapped);
+        setIsLoadingTournaments(false);
       });
 
-      setTournaments(mapped);
-      setIsLoadingTournaments(false);
-    });
+      return () => unsubscribe();
 
-    return () => unsubscribe();
+    } catch (err: any) {
+      console.error(err);
+      setTournamentError(err.message);
+      setIsLoadingTournaments(false);
+    }
   }, []);
 
-  // SAVE USER
+  // 💾 SAVE USER
   useEffect(() => {
     if (user) {
       localStorage.setItem('aura_user', JSON.stringify(user));
@@ -80,12 +99,18 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  // 🔥 JOIN (SAFE)
+  // 🔥 JOIN TOURNAMENT (FINAL SAFE)
   const joinTournament = async (tournamentId: string) => {
     if (!user) return false;
 
     const t = tournaments.find(x => x.id === tournamentId);
     if (!t) return false;
+
+    // 💰 BALANCE CHECK
+    if (user.wallet.balance < t.entryFee) {
+      alert("Not enough balance");
+      return false;
+    }
 
     try {
       const res = await fetch('/api/join-tournament', {
@@ -96,12 +121,14 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
 
       const data = await res.json();
 
+      console.log("🔥 JOIN RESPONSE:", data);
+
       if (!res.ok) {
-        alert(data.error);
+        alert(data.error || "Join failed");
         return false;
       }
 
-      // 💰 WALLET UPDATE
+      // 💰 WALLET UPDATE (only frontend)
       setUser({
         ...user,
         wallet: {
@@ -120,14 +147,16 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
+      // ❌ NO manual slot update (Firestore karega)
       return true;
 
     } catch (err) {
-      console.error(err);
+      console.error("JOIN ERROR:", err);
       return false;
     }
   };
 
+  // 💰 DEPOSIT
   const depositMoney = (amount: number) => {
     if (!user) return;
 
@@ -150,6 +179,7 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // ➕ CREATE
   const createTournament = async (tData: any) => {
     await fetch('/api/add-tournament', {
       method: 'POST',
