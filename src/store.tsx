@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Tournament, Post, Notification } from './types';
 import { MOCK_USER, MOCK_POSTS } from './constants';
 
-// 🔥 FIREBASE IMPORT
+// 🔥 FIREBASE
 import { db } from './firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 
@@ -17,19 +17,9 @@ interface AuraState {
   isAdminView: boolean;
   setUser: (user: User | null) => void;
   setActiveView: (view: string) => void;
-  setTournaments: (tournaments: Tournament[]) => void;
-  fetchTournaments: () => Promise<void>;
-  setPosts: (posts: Post[]) => void;
-  addNotification: (notification: Notification) => void;
-  markNotificationRead: (id: string) => void;
-  setIsAdminView: (isAdmin: boolean) => void;
   joinTournament: (tournamentId: string) => Promise<boolean>;
   depositMoney: (amount: number) => void;
   createTournament: (tournament: any) => void;
-  updateTournament: (id: string, data: any) => Promise<boolean>;
-  selectWinner: (tournamentId: string, userName: string) => Promise<boolean>;
-  canInstall: boolean;
-  installApp: () => Promise<void>;
 }
 
 const AuraContext = createContext<AuraState | undefined>(undefined);
@@ -37,12 +27,8 @@ const AuraContext = createContext<AuraState | undefined>(undefined);
 export function AuraProvider({ children }: { children: React.ReactNode }) {
 
   const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('aura_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+    const saved = localStorage.getItem('aura_user');
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [activeView, setActiveView] = useState('home');
@@ -50,67 +36,39 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingTournaments, setIsLoadingTournaments] = useState(true);
   const [tournamentError, setTournamentError] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
-  const [isAdminView, setIsAdminView] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_USER.notifications);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAdminView, setIsAdminView] = useState(false);
 
-  // 🔥 REALTIME FIRESTORE (MAIN MAGIC)
+  // 🔥 REALTIME FIRESTORE
   useEffect(() => {
-    try {
-      const unsubscribe = onSnapshot(collection(db, 'tournaments'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, 'tournaments'), (snapshot) => {
 
-        const mapped: Tournament[] = snapshot.docs.map(doc => {
-          const t: any = doc.data();
+      const mapped: Tournament[] = snapshot.docs.map(doc => {
+        const t: any = doc.data();
 
-          return {
-            id: doc.id,
-            name: t.name,
-            type: t.type || 'solo',
-
-            entryFee: t.entryFee ?? t.price ?? 0,
-            prizePool: t.prizePool ?? ((t.entryFee ?? t.price ?? 0) * 50),
-
-            maxSlots: t.maxSlots ?? 100,
-            joinedSlots: t.joinedSlots ?? 0,
-
-            status: t.status || 'upcoming',
-
-            date: t.createdAt?.seconds
-              ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
-              : 'N/A',
-
-            startTime: t.startTime || '18:00',
-
-            slots: t.slots || [],
-            winner: t.winner || null
-          };
-        });
-
-        setTournaments(mapped);
-        setIsLoadingTournaments(false);
+        return {
+          id: doc.id,
+          name: t.name,
+          type: t.type || 'solo',
+          entryFee: t.entryFee ?? t.price ?? 0,
+          prizePool: (t.entryFee ?? t.price ?? 0) * 50,
+          maxSlots: t.maxSlots ?? 100,
+          joinedSlots: t.joinedSlots ?? 0,
+          status: t.status || 'upcoming',
+          date: t.createdAt?.seconds
+            ? new Date(t.createdAt.seconds * 1000).toLocaleDateString()
+            : 'N/A',
+          startTime: t.startTime || '18:00',
+          slots: t.slots || [],
+          winner: t.winner || null
+        };
       });
 
-      return () => unsubscribe();
-
-    } catch (err: any) {
-      console.error(err);
-      setTournamentError(err.message);
+      setTournaments(mapped);
       setIsLoadingTournaments(false);
-    }
+    });
 
-  }, []);
-
-  // INSTALL PROMPT
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => unsubscribe();
   }, []);
 
   // SAVE USER
@@ -122,54 +80,52 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const fetchTournaments = async () => {
-    // ❌ Not needed anymore (Firestore realtime handles it)
-    return;
-  };
-
-  const addNotification = (notif: Notification) => {
-    setNotifications(prev => [notif, ...prev]);
-  };
-
-  const markNotificationRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  };
-
-  // JOIN
+  // 🔥 JOIN (SAFE)
   const joinTournament = async (tournamentId: string) => {
     if (!user) return false;
 
     const t = tournaments.find(x => x.id === tournamentId);
-    if (!t || t.joinedSlots >= t.maxSlots) return false;
-    if (user.wallet.balance < t.entryFee) return false;
+    if (!t) return false;
 
-    await fetch('/api/join-tournament', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tournamentId, userName: user.username })
-    });
+    try {
+      const res = await fetch('/api/join-tournament', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId, userName: user.username })
+      });
 
-    setUser({
-      ...user,
-      wallet: {
-        ...user.wallet,
-        balance: user.wallet.balance - t.entryFee,
-        transactions: [
-          {
-            id: `t_${Date.now()}`,
-            amount: t.entryFee,
-            type: 'entry_fee',
-            status: 'completed',
-            date: new Date().toISOString()
-          },
-          ...user.wallet.transactions
-        ]
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error);
+        return false;
       }
-    });
 
-    return true;
+      // 💰 WALLET UPDATE
+      setUser({
+        ...user,
+        wallet: {
+          ...user.wallet,
+          balance: user.wallet.balance - t.entryFee,
+          transactions: [
+            {
+              id: `t_${Date.now()}`,
+              amount: t.entryFee,
+              type: 'entry_fee',
+              status: 'completed',
+              date: new Date().toISOString()
+            },
+            ...user.wallet.transactions
+          ]
+        }
+      });
+
+      return true;
+
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
   };
 
   const depositMoney = (amount: number) => {
@@ -202,31 +158,6 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const updateTournament = async (id: string, data: any) => {
-    await fetch(`/api/tournament/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return true;
-  };
-
-  const selectWinner = async (tournamentId: string, userName: string) => {
-    await fetch('/api/select-winner', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tournamentId, userName })
-    });
-    return true;
-  };
-
-  const installApp = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-  };
-
   return (
     <AuraContext.Provider value={{
       user,
@@ -239,19 +170,9 @@ export function AuraProvider({ children }: { children: React.ReactNode }) {
       isAdminView,
       setUser,
       setActiveView,
-      setTournaments,
-      fetchTournaments,
-      setPosts,
-      addNotification,
-      markNotificationRead,
-      setIsAdminView,
       joinTournament,
       depositMoney,
-      createTournament,
-      updateTournament,
-      selectWinner,
-      canInstall: !!deferredPrompt,
-      installApp
+      createTournament
     }}>
       {children}
     </AuraContext.Provider>
